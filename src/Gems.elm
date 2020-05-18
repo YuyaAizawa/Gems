@@ -6,6 +6,8 @@ import Browser.Events exposing (onKeyDown)
 import Html exposing (Html, div, text, br)
 import Html.Attributes as Attr
 import Json.Decode as Decode
+import Random
+
 
 
 -- MODEL
@@ -55,6 +57,7 @@ initialModel =
 
 type Msg
   = Key Direction
+  | Reload ( Gem, Gem, Gem )
   | Restart
   | Nop
 
@@ -66,32 +69,47 @@ type Direction
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-  let
-    model_ =
-      case model.state of
-        Palying ->
-          case msg of
-            Key Down ->
-              model |> drop
-            
-            Key Left ->
-              model |> left
-            
-            Key Right ->
-              model |> right
+  case model.state of
+    Palying ->
+      case msg of
+        Key Down ->
+          ( model |> drop
+          , Random.generate Reload gemGenerator
+          )
 
-            _ ->
-              model
+        Key Left ->
+          ( model |> left
+          , Cmd.none
+          )
 
-        GameOver ->
-          case msg of
-            Restart ->
-              model |> reset
+        Key Right ->
+          ( model |> right
+          , Cmd.none
+          )
 
-            _ ->
-              model
-  in
-    ( model_, Cmd.none )
+        Reload gems ->
+          ( model
+            |> reloadAndPop gems
+          , Cmd.none
+          )
+
+
+        _ ->
+          ( model
+          , Cmd.none
+          )
+
+    GameOver ->
+      case msg of
+        Restart ->
+          ( model |> reset
+          , Random.generate Reload gemGenerator
+          )
+
+        _ ->
+          ( model
+          , Cmd.none
+          )
 
 reset model =
   initialModel
@@ -117,22 +135,8 @@ drop model =
         |> Array2.set posX (floor + 0) g0
         |> Array2.set posX (floor + 1) g1
         |> Array2.set posX (floor + 2) g2
-
-    state =
-      case field |> Array2.get 2 (height - 3) of
-        Just Void -> Palying
-        _ -> GameOver
   in
-    { model
-    | field = field
-    , falling = next
-    , state = state
-    }
-
-next =
-  { gem = ( Gem 1, Gem 2, Gem 3 )
-  , pos = ( 2, height - 3 )
-  }
+    { model | field = field }
 
 move x y model =
   model.field
@@ -160,6 +164,29 @@ right model =
     ( posX, posY ) = model.falling.pos
   in
     model |> move (posX + 1) posY
+
+gemGenerator =
+  let
+    helper =
+      Random.int 0 3
+        |> Random.map Gem
+  in
+    Random.pair helper (Random.pair helper helper)
+      |> Random.map (\( g0, ( g1, g2 ) ) -> ( g0, g1, g2 ))
+    
+
+reloadAndPop gems model =
+  { model
+  | falling =
+    { gem = gems
+    , pos = ( 2, height - 3 )
+    }
+  , state =
+      case model.field |> Array2.get 2 (height - 3) of
+        Just Void -> Palying
+        _ -> GameOver
+  }
+
 
 
 -- VIEW
@@ -219,7 +246,7 @@ keyDecoder =
 
 main =
   Browser.element
-  { init = \() -> ( initialModel, Cmd.none )
+  { init = \() -> ( initialModel, Random.generate Reload gemGenerator )
   , view = view
   , update = update
   , subscriptions = subscriptions
