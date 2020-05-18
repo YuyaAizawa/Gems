@@ -10,80 +10,101 @@ module Array2 exposing
   , set
   , toListByRow
   , map
+  , indexedMap
+  , fold
   )
 
 import Array exposing (Array)
 
-type Array2 a = Array2 (Array a) Int Int
+type Array2 a = Array2 Int Int (Array a)
 
 empty : Array2 a
 empty =
-  Array2 Array.empty 0 0
+  Array2 0 0 Array.empty
+
+contents : Array2 a -> Array a
+contents (Array2 _ _ contents_) =
+  contents_
 
 isEmpty : Array2 a -> Bool
-isEmpty (Array2 contents _ _) =
-  Array.isEmpty contents
+isEmpty this =
+  this
+    |> contents
+    |> Array.isEmpty
 
 width : Array2 a -> Int
-width (Array2 _ width_ _) =
+width (Array2 width_ _ _) =
   width_
 
 height : Array2 a -> Int
-height (Array2 _ _ height_) =
+height (Array2 _ height_ _) =
   height_
+
+indexMapper : (Int -> Int -> f) -> Array2 a -> (Int -> f)
+indexMapper fn (Array2 width_ height_ _) =
+  \i -> fn (modBy width_ i) ((//) i width_)
 
 initialize : Int -> Int -> (Int -> Int -> a) -> Array2 a
 initialize width_ height_ fn =
   let
-    fn_ i =
-      let
-        x = modBy width_ i
-        y = (//)  width_ i 
-      in
-       fn x y
-
-    contents =
-      Array.initialize
-      (width_ * height_)
-      fn_
+    dummy = Array2 width_ height_ Array.empty
+    fn_ = dummy |> indexMapper fn
   in
-    Array2 contents width_ height_
+    Array.initialize (width_ * height_) fn_
+      |> Array2 width_ height_
 
 repeat : Int -> Int -> a -> Array2 a
 repeat width_ height_ e =
   initialize width_ height_ (\_ _ -> e)
 
+rangeCheck : Int -> Int -> Array2 a -> Bool
+rangeCheck x y this =
+  0 <= x &&
+  x < (this |> width) &&
+  0 <= y &&
+  y < (this |> height)
+
 get : Int -> Int -> Array2 a -> Maybe a
-get x y (Array2 contents width_ height_) =
-  if 0 <= x && x < width_ && 0 <= y && y < height_
-  then Array.get (y * width_ + x) contents
-  else Nothing
+get x y this =
+  if this |> rangeCheck x y
+  then
+    this
+      |> contents
+      |> Array.get (y * (this |> width) + x)
+  else
+    Nothing
 
 set : Int -> Int -> a -> Array2 a -> Array2 a
-set x y a (Array2 contents width_ height_) =
-  if 0 <= x && x < width_ && 0 <= y && y < height_
+set x y a ((Array2 width_ height_ contents_) as this) =
+  if this |> rangeCheck x y
   then
-    Array2
-    (Array.set (y * width_ + x) a contents)
-    width_
-    height_
-  else 
-    (Array2 contents width_ height_)
+    contents_
+      |> Array.set (y * width_ + x) a
+      |> Array2 width_ height_
+  else
+    this
 
 toListByRow : Array2 a -> List (List a)
-toListByRow (Array2 contents width_ height_) =
+toListByRow (Array2 width_ height_ contents_) =
   List.range 0 (height_ - 1)
     |> List.map (\row ->
-      contents
+      contents_
         |> Array.slice (row * width_) ((row + 1) * width_)
         |> Array.toList
     )
 
+indexedMap : (Int -> Int -> a -> b) -> Array2 a -> Array2 b
+indexedMap fn ((Array2 width_ height_ contents_) as this) =
+  contents_
+    |> Array.indexedMap (this |> indexMapper fn)
+    |> Array2 width_ height_
+
 map : (a -> b) -> Array2 a -> Array2 b
-map fn (Array2 contents width_ height_) =
-  let
-    contents_ =
-      Array.map fn contents
-  in
-    Array2 contents_ width_ height_
-    
+map fn =
+  indexedMap (\_ _ a -> fn a)
+
+fold : (a -> b -> b) -> b -> Array2 a -> b
+fold fn acm this =
+  this
+    |> contents
+    |> Array.foldl fn acm
