@@ -18,8 +18,8 @@ height = 15
 type alias Model =
   { field : Array2 Gem
   , falling :
-    { gem : ( Gem, Gem, Gem )
-    , pos : ( Int, Int )
+    { gem : Dango
+    , pos : Pos
     }
   , state : State
   }
@@ -27,6 +27,17 @@ type alias Model =
 type Gem
   = Gem Int
   | Void
+
+type alias Dango =
+  { top : Gem
+  , middle : Gem
+  , bottom : Gem
+  }
+
+type alias Pos =
+  { x : Int
+  , y : Int
+  }
 
 type State
   = Palying
@@ -45,19 +56,23 @@ initialModel : Model
 initialModel =
   { field = Array2.repeat width height Void
   , falling =
-    { gem = ( Gem 1, Gem 2, Gem 3 )
-    , pos = ( 2, height - 3 )
+    { gem = { top = Void, middle = Void, bottom = Void }
+    , pos = entrance
     }
   , state = Palying
   }
 
-
+entrance : Pos
+entrance =
+  { x = 2
+  , y = height - 3
+  }
 
 -- UPDATE
 
 type Msg
   = Key Direction
-  | Reload ( Gem, Gem, Gem )
+  | Reload Dango
   | Restart
   | Nop
 
@@ -74,7 +89,7 @@ update msg model =
       case msg of
         Key Down ->
           ( model |> drop
-          , Random.generate Reload gemGenerator
+          , Random.generate Reload dangoGenerator
           )
 
         Key Left ->
@@ -93,7 +108,6 @@ update msg model =
           , Cmd.none
           )
 
-
         _ ->
           ( model
           , Cmd.none
@@ -103,7 +117,7 @@ update msg model =
       case msg of
         Restart ->
           ( model |> reset
-          , Random.generate Reload gemGenerator
+          , Random.generate Reload dangoGenerator
           )
 
         _ ->
@@ -111,33 +125,36 @@ update msg model =
           , Cmd.none
           )
 
-reset model =
+reset : Model -> Model
+reset _ =
   initialModel
 
+drop : Model -> Model
 drop model =
   let
-    ( posX, posY ) = model.falling.pos
-    ( g0, g1, g2 ) = model.falling.gem
+    { x, y } = model.falling.pos
+    { top, middle, bottom } = model.falling.gem
     
     floor =
       List.range 0 (height - 1)
-        |> List.filter (\y ->
+        |> List.filter (\y_ ->
           model.field
-            |> Array2.get posX y
+            |> Array2.get x y_
             |> Maybe.withDefault Void
             |> (==) Void
         )
         |> List.head
-        |> Maybe.withDefault (height - 3)
+        |> Maybe.withDefault entrance.y
 
     field =
       model.field
-        |> Array2.set posX (floor + 0) g0
-        |> Array2.set posX (floor + 1) g1
-        |> Array2.set posX (floor + 2) g2
+        |> Array2.set x (floor + 0) bottom
+        |> Array2.set x (floor + 1) middle
+        |> Array2.set x (floor + 2) top
   in
     { model | field = field }
 
+move : Int -> Int -> Model -> Model
 move x y model =
   model.field
     |> Array2.get x y
@@ -146,43 +163,45 @@ move x y model =
         Just Void ->
           let
               falling = model.falling
-              falling_ = { falling | pos = ( x, y ) }
+              falling_ = { falling | pos = { x = x, y = y } }
           in
             { model | falling = falling_ }
         
         _ -> model
     )
 
+left : Model -> Model
 left model =
   let
-    ( posX, posY ) = model.falling.pos
+    { x, y } = model.falling.pos
   in
-    model |> move (posX - 1) posY 
+    model |> move (x - 1) y 
 
+right : Model -> Model
 right model =
   let
-    ( posX, posY ) = model.falling.pos
+    { x, y } = model.falling.pos
   in
-    model |> move (posX + 1) posY
+    model |> move (x + 1) y
 
-gemGenerator =
+dangoGenerator : Random.Generator Dango
+dangoGenerator =
   let
     helper =
       Random.int 0 3
         |> Random.map Gem
   in
-    Random.pair helper (Random.pair helper helper)
-      |> Random.map (\( g0, ( g1, g2 ) ) -> ( g0, g1, g2 ))
-    
+    Random.map3 Dango helper helper helper
 
-reloadAndPop gems model =
+reloadAndPop : Dango -> Model -> Model
+reloadAndPop dango model =
   { model
   | falling =
-    { gem = gems
-    , pos = ( 2, height - 3 )
+    { gem = dango
+    , pos = entrance
     }
   , state =
-      case model.field |> Array2.get 2 (height - 3) of
+      case model.field |> Array2.get entrance.x entrance.y of
         Just Void -> Palying
         _ -> GameOver
   }
@@ -194,14 +213,14 @@ reloadAndPop gems model =
 view : Model -> Html Msg
 view model =
   let
-    ( posX, posY ) = model.falling.pos
-    ( g0, g1, g2 ) = model.falling.gem
+    { x, y } = model.falling.pos
+    { top, middle, bottom } = model.falling.gem
   in
     model.field
       |> fieldView
-      |> Array2.set posX (posY + 0) (g0 |> gemToChar)
-      |> Array2.set posX (posY + 1) (g1 |> gemToChar)
-      |> Array2.set posX (posY + 2) (g2 |> gemToChar)
+      |> Array2.set x (y + 0) (bottom |> gemToChar)
+      |> Array2.set x (y + 1) (middle |> gemToChar)
+      |> Array2.set x (y + 2) (top    |> gemToChar)
       |> Array2.toListByRow
       |> List.reverse
       |> List.map (String.fromList >> text)
@@ -246,7 +265,7 @@ keyDecoder =
 
 main =
   Browser.element
-  { init = \() -> ( initialModel, Random.generate Reload gemGenerator )
+  { init = \() -> ( initialModel, Random.generate Reload dangoGenerator )
   , view = view
   , update = update
   , subscriptions = subscriptions
