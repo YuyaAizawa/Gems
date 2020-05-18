@@ -21,15 +21,24 @@ type alias Model =
     }
   }
 
-type alias Gem = Char
-void : Gem
-void = '.'
+type Gem
+  = Gem Int
+  | Void
+
+gemToChar gem =
+  case gem of
+    Gem 0 -> '0'
+    Gem 1 -> '1'
+    Gem 2 -> '2'
+    Gem 3 -> '3'
+    Void -> '.'
+    _ -> '/'
 
 initialModel : Model
 initialModel =
-  { field = Array2.repeat width height void
+  { field = Array2.repeat width height Void
   , falling =
-    { gem = ( 'X', 'X', 'X' )
+    { gem = ( Gem 1, Gem 2, Gem 3 )
     , pos = ( 2, height - 3 )
     }
   }
@@ -76,8 +85,8 @@ drop model =
         |> List.filter (\y ->
           model.field
             |> Array2.get posX y
-            |> Maybe.withDefault void
-            |> (==) void
+            |> Maybe.withDefault Void
+            |> (==) Void
         )
         |> List.head
         |> Maybe.withDefault (height - 3)
@@ -91,7 +100,7 @@ drop model =
     { model | field = field, falling = next }
 
 next =
-  { gem = ( 'O', 'O', 'X' )
+  { gem = ( Gem 1, Gem 2, Gem 3 )
   , pos = ( 2, height - 3 )
   }
 
@@ -100,7 +109,7 @@ move x y model =
     |> Array2.get x y
     |> (\maybeGem ->
       case maybeGem of
-        Just '.' ->
+        Just Void ->
           let
               falling = model.falling
               falling_ = { falling | pos = ( x, y ) }
@@ -146,8 +155,6 @@ fieldView : Array2 Gem -> Array2 Char
 fieldView field =
   Array2.map gemToChar field
 
-gemToChar gem =
-  gem
 
 
 -- SUBSCRIPTION --
