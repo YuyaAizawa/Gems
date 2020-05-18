@@ -19,11 +19,16 @@ type alias Model =
     { gem : ( Gem, Gem, Gem )
     , pos : ( Int, Int )
     }
+  , state : State
   }
 
 type Gem
   = Gem Int
   | Void
+
+type State
+  = Palying
+  | GameOver
 
 gemToChar gem =
   case gem of
@@ -41,6 +46,7 @@ initialModel =
     { gem = ( Gem 1, Gem 2, Gem 3 )
     , pos = ( 2, height - 3 )
     }
+  , state = Palying
   }
 
 
@@ -49,6 +55,7 @@ initialModel =
 
 type Msg
   = Key Direction
+  | Restart
   | Nop
 
 type Direction
@@ -61,19 +68,33 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   let
     model_ =
-      case msg of
-        Key Down ->
-          model |> drop
-        Key Left ->
-          model |> left
-        Key Right ->
-          model |> right
+      case model.state of
+        Palying ->
+          case msg of
+            Key Down ->
+              model |> drop
+            
+            Key Left ->
+              model |> left
+            
+            Key Right ->
+              model |> right
 
-        _ ->
-          model
+            _ ->
+              model
+
+        GameOver ->
+          case msg of
+            Restart ->
+              model |> reset
+
+            _ ->
+              model
   in
     ( model_, Cmd.none )
 
+reset model =
+  initialModel
 
 drop model =
   let
@@ -96,8 +117,17 @@ drop model =
         |> Array2.set posX (floor + 0) g0
         |> Array2.set posX (floor + 1) g1
         |> Array2.set posX (floor + 2) g2
+
+    state =
+      case field |> Array2.get 2 (height - 3) of
+        Just Void -> Palying
+        _ -> GameOver
   in
-    { model | field = field, falling = next }
+    { model
+    | field = field
+    , falling = next
+    , state = state
+    }
 
 next =
   { gem = ( Gem 1, Gem 2, Gem 3 )
@@ -149,6 +179,9 @@ view model =
       |> List.reverse
       |> List.map (String.fromList >> text)
       |> List.intersperse (br[][])
+      |> div []
+      |> List.singleton
+      |> (\f -> text (if model.state == GameOver then "GameOver" else "")::f)
       |> div [Attr.id "gems"]
 
 fieldView : Array2 Gem -> Array2 Char
@@ -168,11 +201,12 @@ keyDecoder =
   let
     keyToMsg key =
       case key of
-        "ArrowUp" -> Key Up
-        "ArrowDown" -> Key Down
+        "ArrowUp"    -> Key Up
+        "ArrowDown"  -> Key Down
         "ArrowRight" -> Key Right
-        "ArrowLeft" -> Key Left
-        _ -> Nop
+        "ArrowLeft"  -> Key Left
+        "r"          -> Restart
+        _            -> Nop
 
     keyDecoder_ =
       Decode.field "key" Decode.string
