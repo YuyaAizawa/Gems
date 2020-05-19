@@ -1,5 +1,6 @@
 module Gems exposing (main)
 
+import Array
 import Array2 exposing (Array2)
 import Browser
 import Browser.Events exposing (onKeyDown)
@@ -19,10 +20,8 @@ height = 15
 
 type alias Model =
   { field : Array2 Gem
-  , falling :
-    { gem : Dango
-    , pos : Pos
-    }
+  , fallingGem : Dango
+  , fallingPos : Pos
   , collecting : Array2 Gem
   , state : State
   }
@@ -46,25 +45,18 @@ type State
   = Palying
   | GameOver
 
-gemToChar gem =
-  case gem of
-    Gem 0 -> '0'
-    Gem 1 -> '1'
-    Gem 2 -> '2'
-    Gem 3 -> '3'
-    Void -> '.'
-    _ -> '/'
-
 emptyField =
   Array2.repeat width height Void
 
 initialModel : Model
 initialModel =
   { field = emptyField
-  , falling =
-    { gem = { top = Void, middle = Void, bottom = Void }
-    , pos = entrance
+  , fallingGem =
+    { top = Void
+    , middle = Void
+    , bottom = Void
     }
+  , fallingPos = entrance
   , collecting = emptyField
   , state = Palying
   }
@@ -96,11 +88,6 @@ update msg model =
   case model.state of
     Palying ->
       case msg of
-        Key Down ->
-          ( model |> drop
-          , lineCheck
-          )
-
         Key Left ->
           ( model |> left
           , Cmd.none
@@ -109,6 +96,11 @@ update msg model =
         Key Right ->
           ( model |> right
           , Cmd.none
+          )
+
+        Key Down ->
+          ( model |> drop
+          , lineCheck
           )
 
         Reload gems ->
@@ -123,12 +115,9 @@ update msg model =
 
             collectAny =
               model_.collecting
-                |> Array2.fold
-                  (\gem b ->
-                    b || case gem of
-                      Gem _ -> True
-                      Void -> False)
-                  False
+                |> Array2.toList
+                |> List.all ((==) Void)
+                |> not
 
             cmd =
               if collectAny
@@ -159,56 +148,78 @@ update msg model =
           , Cmd.none
           )
 
-reload =
-  Random.generate Reload dangoGenerator
-
+lineCheck : Cmd Msg
 lineCheck =
   Task.succeed ()
     |> Task.perform (\_ -> LineCheck)
 
+reload : Cmd Msg
+reload =
+  Random.generate Reload dangoGenerator
+
+waitToCollapse : Cmd Msg
 waitToCollapse =
   Process.sleep 500
     |> Task.perform (\_ -> Collapsed)
 
-reset : Model -> Model
-reset _ =
-  initialModel
+left : Model -> Model
+left model =
+  let
+    { x, y } = model.fallingPos
+  in
+    model |> move (x - 1) y
+
+right : Model -> Model
+right model =
+  let
+    { x, y } = model.fallingPos
+  in
+    model |> move (x + 1) y
 
 drop : Model -> Model
 drop model =
   let
-    { x, y } = model.falling.pos
-    { top, middle, bottom } = model.falling.gem
+    { x, y } = model.fallingPos
+    { top, middle, bottom } = model.fallingGem
 
-    floor =
-      List.range 0 (height - 1)
-        |> List.filter (\y_ ->
-          model.field
-            |> Array2.get x y_
-            |> Maybe.withDefault Void
-            |> (==) Void
+    bottomHeight =
+      model.field
+        |> Array2.toIndexedList
+        |> List.filterMap (\( ( x_, y_ ), g ) ->
+          if x_ == x && g == Void
+          then Just y_
+          else Nothing
         )
-        |> List.head
+        |> List.minimum
         |> Maybe.withDefault entrance.y
 
     field =
       model.field
-        |> Array2.set x (floor + 0) bottom
-        |> Array2.set x (floor + 1) middle
-        |> Array2.set x (floor + 2) top
+        |> Array2.set x (bottomHeight + 0) bottom
+        |> Array2.set x (bottomHeight + 1) middle
+        |> Array2.set x (bottomHeight + 2) top
   in
     { model | field = field }
+
+reloadAndPop : Dango -> Model -> Model
+reloadAndPop dango model =
+  { model
+  | fallingGem = dango
+  , fallingPos = entrance
+  , state =
+      case model.field |> Array2.get entrance.x entrance.y of
+        Just Void -> Palying
+        _ -> GameOver
+  }
 
 checkLine : Model -> Model
 checkLine model =
   let
-    field = model.field
-
     helper (x0, y0) (x1, y1) (x2, y2) array2 =
       case
-        ( field |> Array2.get x0 y0
-        , field |> Array2.get x1 y1
-        , field |> Array2.get x2 y2
+        ( model.field |> Array2.get x0 y0
+        , model.field |> Array2.get x1 y1
+        , model.field |> Array2.get x2 y2
         )
       of
         ( Just (Gem k), Just (Gem l), Just (Gem m) ) ->
@@ -223,86 +234,77 @@ checkLine model =
 
         _ -> array2
 
-    basePoints =
-      List.range 0 (height - 1)
-        |> List.concatMap (\y ->
-          List.range 0 (width - 1)
-            |> List.map (\x -> (x, y))
-        )
-
     collecting =
-      basePoints
+      emptyField
+        |> Array2.toIndexedList
+        |> List.map Tuple.first
         |> List.foldl (\(x, y) array2 ->
           array2
-            |> helper (x + 0, y) (x + 1, y) (x + 2, y)
-            |> helper (x, y + 0) (x, y + 1) (x, y + 2)
+            |> helper (x + 0, y    ) (x + 1, y    ) (x + 2, y    )
+            |> helper (x    , y + 0) (x    , y + 1) (x    , y + 2)
             |> helper (x + 0, y + 0) (x + 1, y + 1) (x + 2, y + 2)
             |> helper (x + 2, y + 0) (x + 1, y + 1) (x + 0, y + 2)
         ) emptyField
+
+    field =
+      collecting
+        |> Array2.toIndexedList
+        |> List.foldl (\( ( x, y ), g ) field_ ->
+          case g of
+            Gem _ ->
+              field_ |> Array2.set x y Void
+
+            Void ->
+              field_
+        ) model.field
   in
-    { model | collecting = collecting }
+    { model
+    | collecting = collecting
+    , field = field
+    }
 
 collapse : Model -> Model
 collapse model =
   let
-    collapseColumn x field =
-      List.range 0 (height - 1)
-        |> List.foldl (\y list ->
-          case
-            ( model.collecting |> Array2.get x y
-            , model.field      |> Array2.get x y
-            )
-          of
-            ( Just Void, Just (Gem g) ) ->
-              (Gem g) :: list
-
-            _ ->
-              list
-        ) []
-        |> List.reverse
-        |> List.foldl (\gem ( y, f ) ->
-          ( y + 1, f |> Array2.set x y gem )
-        ) ( 0, field )
-        |> Tuple.second
+    acc =
+      { height = Array.repeat width 0
+      , field = emptyField
+      }
 
     collapsed =
-      List.range 0 (width - 1)
-        |> List.foldl collapseColumn emptyField
+      model.field
+        |> Array2.toIndexedList
+        |> List.foldl (\( ( x, _ ), gem ) acc_ ->
+          case gem of
+            Gem _ ->
+              let
+                h =
+                  acc_.height
+                    |> Array.get x
+                    |> Maybe.withDefault 0
+              in
+                { height =
+                    acc_.height
+                      |> Array.set x (h + 1)
+
+                , field =
+                    acc_.field
+                      |> Array2.set x h gem
+                }
+
+            Void ->
+              acc_
+        ) acc
+        |> .field
   in
     { model
     | field = collapsed
     , collecting = emptyField
     }
 
-move : Int -> Int -> Model -> Model
-move x y model =
-  model.field
-    |> Array2.get x y
-    |> (\maybeGem ->
-      case maybeGem of
-        Just Void ->
-          let
-              falling = model.falling
-              falling_ = { falling | pos = { x = x, y = y } }
-          in
-            { model | falling = falling_ }
-
-        _ -> model
-    )
-
-left : Model -> Model
-left model =
-  let
-    { x, y } = model.falling.pos
-  in
-    model |> move (x - 1) y
-
-right : Model -> Model
-right model =
-  let
-    { x, y } = model.falling.pos
-  in
-    model |> move (x + 1) y
+reset : Model -> Model
+reset _ =
+  initialModel
 
 dangoGenerator : Random.Generator Dango
 dangoGenerator =
@@ -313,18 +315,17 @@ dangoGenerator =
   in
     Random.map3 Dango helper helper helper
 
-reloadAndPop : Dango -> Model -> Model
-reloadAndPop dango model =
-  { model
-  | falling =
-    { gem = dango
-    , pos = entrance
-    }
-  , state =
-      case model.field |> Array2.get entrance.x entrance.y of
-        Just Void -> Palying
-        _ -> GameOver
-  }
+move : Int -> Int -> Model -> Model
+move x y model =
+  model.field
+    |> Array2.get x y
+    |> (\maybeGem ->
+      case maybeGem of
+        Just Void ->
+          { model | fallingPos = { x = x, y = y} }
+
+        _ -> model
+    )
 
 
 
@@ -333,30 +334,26 @@ reloadAndPop dango model =
 view : Model -> Html Msg
 view model =
   let
-    posX = model.falling.pos.x
-    posY = model.falling.pos.y
-    { top, middle, bottom } = model.falling.gem
+    posX = model.fallingPos.x
+    posY = model.fallingPos.y
+    { top, middle, bottom } = model.fallingGem
   in
     model.field
-      |> fieldView
-      |> Array2.set posX (posY + 0) (bottom |> gemToChar)
-      |> Array2.set posX (posY + 1) (middle |> gemToChar)
-      |> Array2.set posX (posY + 2) (top    |> gemToChar)
-      |> Array2.indexedMap (\x y c ->
+      |> Array2.set posX (posY + 0) bottom
+      |> Array2.set posX (posY + 1) middle
+      |> Array2.set posX (posY + 2) top
+      |> Array2.indexedMap (\x y fromField ->
         let
-          span_ =
+          cell =
             case model.collecting |> Array2.get x y of
-              Just (Gem _) ->
-                span [Attr.style "color" "red"]
-
+              Just (Gem fromCollecting) ->
+                { color = "red", gem = Gem fromCollecting }
               _ ->
-                span [Attr.style "color" "black"]
+                { color = "black", gem = fromField }
         in
-          c
-            |> String.fromChar
-            |> text
-            |> List.singleton
-            |> span_
+          span
+          [ Attr.style "color" cell.color ]
+          [ text <| String.fromChar <| gemToChar <| cell.gem ]
       )
       |> Array2.toListByRow
       |> List.reverse
@@ -367,9 +364,14 @@ view model =
       |> (\f -> text (if model.state == GameOver then "GameOver" else "")::f)
       |> div [Attr.id "gems"]
 
-fieldView : Array2 Gem -> Array2 Char
-fieldView field =
-  Array2.map gemToChar field
+gemToChar gem =
+  case gem of
+    Gem 0 -> '0'
+    Gem 1 -> '1'
+    Gem 2 -> '2'
+    Gem 3 -> '3'
+    Void -> '.'
+    _ -> '/'
 
 
 
@@ -402,7 +404,7 @@ keyDecoder =
 
 main =
   Browser.element
-  { init = \() -> ( initialModel, Random.generate Reload dangoGenerator )
+  { init = \() -> ( initialModel, reload )
   , view = view
   , update = update
   , subscriptions = subscriptions

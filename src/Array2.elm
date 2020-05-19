@@ -8,6 +8,8 @@ module Array2 exposing
   , repeat
   , get
   , set
+  , toList
+  , toIndexedList
   , toListByRow
   , map
   , indexedMap
@@ -84,6 +86,19 @@ set x y a ((Array2 width_ height_ contents_) as this) =
   else
     this
 
+toList : Array2 a -> List a
+toList this =
+  this
+    |> contents
+    |> Array.toList
+
+toIndexedList : Array2 a -> List ( ( Int, Int ), a )
+toIndexedList (Array2 width_ _ contents_) =
+  contents_
+    |> Array.toIndexedList
+    |> List.map (\( i, a ) ->
+      ( (modBy width_ i, (//) i width_ ), a))
+
 toListByRow : Array2 a -> List (List a)
 toListByRow (Array2 width_ height_ contents_) =
   List.range 0 (height_ - 1)
@@ -104,7 +119,7 @@ map fn =
   indexedMap (\_ _ a -> fn a)
 
 fold : (a -> b -> b) -> b -> Array2 a -> b
-fold fn acm this =
+fold fn acc this =
   this
     |> contents
-    |> Array.foldl fn acm
+    |> Array.foldl fn acc
