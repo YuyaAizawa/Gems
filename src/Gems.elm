@@ -10,6 +10,7 @@ import Json.Decode as Decode
 import Process
 import Random
 import Task
+import Time
 
 
 
@@ -70,7 +71,8 @@ entrance =
 -- UPDATE
 
 type Msg
-  = Key Direction
+  = Fall
+  | Key Direction
   | LineCheck
   | Collapsed
   | Reload Dango
@@ -88,6 +90,21 @@ update msg model =
   case model.state of
     Palying ->
       case msg of
+        Fall ->
+          let
+            { x, y } = model.fallingPos
+          in
+            case model.field |> Array2.get x (y - 1) of
+              Just Void ->
+                ( { model | fallingPos = { x = x, y = y - 1 } }
+                , Cmd.none
+                )
+
+              _ ->
+                ( model |> drop
+                , lineCheck
+                )
+
         Key Left ->
           ( model |> left
           , Cmd.none
@@ -379,7 +396,20 @@ gemToChar gem =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  onKeyDown keyDecoder
+  let
+    collectNone =
+      model.collecting
+        |> Array2.toList
+        |> List.all ((==) Void)
+  in
+    if collectNone
+    then
+      Sub.batch
+      [ onKeyDown keyDecoder
+      , Time.every 1000 (\_ -> Fall)
+      ]
+    else
+      Sub.none
 
 keyDecoder : Decode.Decoder Msg
 keyDecoder =
