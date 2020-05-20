@@ -23,6 +23,7 @@ type alias Model =
   { field : Array2 Gem
   , fallingGem : Dango
   , fallingPos : Pos
+  , fallingStop : Bool
   , collecting : Array2 Gem
   , state : State
   }
@@ -58,6 +59,7 @@ initialModel =
     , bottom = Void
     }
   , fallingPos = entrance
+  , fallingStop = False
   , collecting = emptyField
   , state = Palying
   }
@@ -216,13 +218,14 @@ drop model =
         |> Array2.set x (bottomHeight + 1) middle
         |> Array2.set x (bottomHeight + 2) top
   in
-    { model | field = field }
+    { model | field = field, fallingPos = { x = x, y = bottomHeight } }
 
 reloadAndPop : Dango -> Model -> Model
 reloadAndPop dango model =
   { model
   | fallingGem = dango
   , fallingPos = entrance
+  , fallingStop = False
   , state =
       case model.field |> Array2.get entrance.x entrance.y of
         Just Void -> Palying
@@ -278,6 +281,7 @@ checkLine model =
     { model
     | collecting = collecting
     , field = field
+    , fallingStop = True
     }
 
 collapse : Model -> Model
@@ -401,15 +405,18 @@ subscriptions model =
       model.collecting
         |> Array2.toList
         |> List.all ((==) Void)
+
+    pushIf bool content list =
+      if bool
+      then content :: list
+      else list
+
+    subs =
+      []
+        |> pushIf collectNone (onKeyDown keyDecoder)
+        |> pushIf (not model.fallingStop) (Time.every 1000 (\_ -> Fall))
   in
-    if collectNone
-    then
-      Sub.batch
-      [ onKeyDown keyDecoder
-      , Time.every 1000 (\_ -> Fall)
-      ]
-    else
-      Sub.none
+    Sub.batch subs
 
 keyDecoder : Decode.Decoder Msg
 keyDecoder =
