@@ -67,7 +67,7 @@ initialModel =
 entrance : Pos
 entrance =
   { x = 2
-  , y = height - 3
+  , y = height - 1
   }
 
 -- UPDATE
@@ -76,8 +76,8 @@ type Msg
   = Fall
   | Key Direction
   | LineCheck
-  | Collapsed
   | Reload Dango
+  | Collapsed
   | Restart
   | Nop
 
@@ -218,7 +218,10 @@ drop model =
         |> Array2.set x (bottomHeight + 1) middle
         |> Array2.set x (bottomHeight + 2) top
   in
-    { model | field = field, fallingPos = { x = x, y = bottomHeight } }
+    { model
+    | field = field
+    , fallingPos = { x = x, y = bottomHeight }
+    }
 
 reloadAndPop : Dango -> Model -> Model
 reloadAndPop dango model =
@@ -382,7 +385,7 @@ view model =
       |> List.intersperse (br[][])
       |> div []
       |> List.singleton
-      |> (\f -> text (if model.state == GameOver then "GameOver" else "")::f)
+      |> pushIf (model.state == GameOver) (text "GameOver")
       |> div [Attr.id "gems"]
 
 gemToChar gem =
@@ -405,11 +408,6 @@ subscriptions model =
       model.collecting
         |> Array2.toList
         |> List.all ((==) Void)
-
-    pushIf bool content list =
-      if bool
-      then content :: list
-      else list
 
     subs =
       []
@@ -450,3 +448,8 @@ main =
 
 
 -- UTILS --
+
+pushIf bool content list =
+  if bool
+  then content :: list
+  else list
