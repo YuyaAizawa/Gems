@@ -368,8 +368,8 @@ view model =
     posY = model.fallingPos.y
     { top, middle, bottom } = model.fallingGem
 
-    w = String.fromInt (width  * 16)
-    h = String.fromInt (height * 16)
+    w = String.fromInt (width  * 20)
+    h = String.fromInt (height * 20)
 
     gameOverText =
       Svg.text_
@@ -379,15 +379,15 @@ view model =
       [ Svg.text "GameOver" ]
 
     gemView (( x, y ), gem ) =
-      gemToSvg (x * 16) ((height - y - 1) * 16) gem False
+      gemToSvg (x * 20) ((height - y - 1) * 20) gem False
     gemViewBlinking (( x, y ), gem ) =
-      gemToSvg (x * 16) ((height - y - 1) * 16) gem True
+      gemToSvg (x * 20) ((height - y - 1) * 20) gem True
 
     field =
       model.field
         |> Array2.toIndexedList
         |> List.filter (\( _, gem ) -> gem /= Void)
-        |> List.map gemView
+        |> List.concatMap gemView
 
     dango =
       ( if model.fallingGem == emptyDango
@@ -397,13 +397,13 @@ view model =
           , ( ( posX, posY + 1), middle )
           , ( ( posX, posY + 2), top )
           ]
-      ) |> List.map gemView
+      ) |> List.concatMap gemView
 
     collecting =
       model.collecting
         |> Array2.toIndexedList
         |> List.filter (\( _, gem ) -> gem /= Void)
-        |> List.map gemViewBlinking
+        |> List.concatMap gemViewBlinking
 
     background =
       Svg.rect
@@ -426,17 +426,17 @@ view model =
     ]
       |> div [ HAttr.id "gems" ]
 
-gemToSvg : Int -> Int -> Gem -> Bool -> Svg msg
+gemToSvg : Int -> Int -> Gem -> Bool -> List (Svg msg)
 gemToSvg x y gem blinking =
-  let
-    points =
-      shape
-        |> List.map (\( x_, y_ ) -> ( x + x_, y + y_))
-
-    class =
-      gemToClass gem blinking
-  in
-    polygon points class
+  shape (gemToClass gem blinking)
+    |> List.concatMap (\( sameColor, className ) ->
+      sameColor
+        |> List.map (\points ->
+          polygon
+          (points |> List.map (\( x_, y_ ) -> ( x + x_, y + y_)))
+          (SAttr.class className)
+        )
+    )
 
 gemToClass gem blinking =
   let
@@ -454,11 +454,49 @@ gemToClass gem blinking =
       then "-blinking"
       else ""
   in
-    SAttr.class <| gemName ++ blinking_
+    gemName ++ blinking_
 
-shape =
-  [ (  1,  5 ), (  5,  1 ), ( 11,  1 ), ( 15,  5 )
-  , ( 15, 11 ), ( 11, 15 ), (  5, 15 ), (  1, 11 )
+shape : String -> List ( List (List (Int, Int)), String )
+shape name =
+  [ (svgBase  , name++"-base"  )
+  , (svgLight1, name++"-light1")
+  , (svgLight2, name++"-light2")
+  , (svgDark1 , name++"-dark1" )
+  , (svgDark2 , name++"-dark2" )
+  ]
+
+svgBase =
+  [ [ (  1, 10 ), (  3,  6 ), (  6,  3 )
+    , ( 10,  1 ), ( 14,  3 ), ( 17,  6 )
+    , ( 19, 10 ), ( 17, 14 ), ( 14, 17 )
+    , ( 10, 19 ), (  6, 17 ), (  3, 14 )
+    ]
+  ]
+svgLight1 =
+  [ [ (  5, 10 ), (  3,  6 ), (  7,  7 ) ]
+  , [ (  7,  7 ), (  6,  3 ), ( 10,  5 ) ]
+  ]
+svgLight2 =
+  [ [ (  1, 10 ), (  3,  6 ), (  5, 10 ) ]
+  , [ (  3,  6 ), (  6,  3 ), (  7,  7 ) ]
+  , [ (  6,  3 ), ( 10,  1 ), ( 10,  5 ) ]
+  , [ ( 10,  5 ), ( 14,  3 ), ( 13,  7 ) ]
+  , [ ( 13,  7 ), ( 17,  6 ), ( 15, 10 ) ]
+  , [ (  7, 13 ), ( 10, 15 ), (  6, 17 ) ]
+  , [ (  5, 10 ), (  7, 13 ), (  3, 14 ) ]
+  ]
+svgDark1 =
+  [ [ (  7,  7 ), ( 10,  5 ), ( 10, 10 ) ]
+  , [ ( 15, 10 ), ( 17,  6 ), ( 19, 10 ) ]
+  , [ ( 15, 10 ), ( 17, 14 ), ( 13, 13 ) ]
+  , [ ( 13, 13 ), ( 14, 17 ), ( 10, 15 ) ]
+  ]
+svgDark2 =
+  [ [ ( 10, 10 ), ( 13,  7 ), ( 15, 10 ) ]
+  , [ ( 15, 10 ), ( 19, 10 ), ( 17, 14 ) ]
+  , [ ( 13, 13 ), ( 17, 14 ), ( 14, 17 ) ]
+  , [ ( 10, 15 ), ( 14, 17 ), ( 10, 19 ) ]
+  , [ ( 10, 10 ), ( 10, 15 ), (  7, 13 ) ]
   ]
 
 polygon : List (Int, Int) -> Svg.Attribute msg -> Svg msg

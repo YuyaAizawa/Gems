@@ -2,8 +2,20 @@
   font-family: Consolas;
 }
 
-#gems .ruby {
+#gems .ruby-base {
   fill: #C00;
+}
+#gems .ruby-light1 {
+  fill: #FFF;
+}
+#gems .ruby-light2 {
+  fill: #F88;
+}
+#gems .ruby-dark1 {
+  fill: #A00;
+}
+#gems .ruby-dark2 {
+  fill: #700;
 }
 #gems .sapphire {
   fill: #04F;
