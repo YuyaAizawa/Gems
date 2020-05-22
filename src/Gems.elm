@@ -5,10 +5,12 @@ import Array2 exposing (Array2)
 import Browser
 import Browser.Events exposing (onKeyDown)
 import Html exposing (Html, div, text, br, span)
-import Html.Attributes as Attr
+import Html.Attributes as HAttr
 import Json.Decode as Decode
 import Process
 import Random
+import Svg exposing (Svg)
+import Svg.Attributes as SAttr
 import Task
 import Time
 
@@ -50,18 +52,10 @@ type State
 emptyField =
   Array2.repeat width height Void
 
-initialModel : Model
-initialModel =
-  { field = emptyField
-  , fallingGem =
-    { top = Void
-    , middle = Void
-    , bottom = Void
-    }
-  , fallingPos = entrance
-  , fallingStop = False
-  , collecting = emptyField
-  , state = Palying
+emptyDango =
+  { top = Void
+  , middle = Void
+  , bottom = Void
   }
 
 entrance : Pos
@@ -69,6 +63,18 @@ entrance =
   { x = 2
   , y = height - 1
   }
+
+initialModel : Model
+initialModel =
+  { field = emptyField
+  , fallingGem = emptyDango
+  , fallingPos = entrance
+  , fallingStop = False
+  , collecting = emptyField
+  , state = Palying
+  }
+
+
 
 -- UPDATE
 
@@ -220,7 +226,7 @@ drop model =
   in
     { model
     | field = field
-    , fallingPos = { x = x, y = bottomHeight }
+    , fallingGem = emptyDango
     }
 
 reloadAndPop : Dango -> Model -> Model
@@ -346,7 +352,7 @@ move x y model =
     |> (\maybeGem ->
       case maybeGem of
         Just Void ->
-          { model | fallingPos = { x = x, y = y} }
+          { model | fallingPos = { x = x, y = y } }
 
         _ -> model
     )
@@ -361,43 +367,109 @@ view model =
     posX = model.fallingPos.x
     posY = model.fallingPos.y
     { top, middle, bottom } = model.fallingGem
+
+    w = String.fromInt (width  * 16)
+    h = String.fromInt (height * 16)
+
+    gameOverText =
+      Svg.text_
+      [ SAttr.fontSize "20", SAttr.stroke "black"
+      , SAttr.x "5", SAttr.y "100"
+      ]
+      [ Svg.text "GameOver" ]
+
+    gemView (( x, y ), gem ) =
+      gemToSvg (x * 16) ((height - y - 1) * 16) gem False
+    gemViewBlinking (( x, y ), gem ) =
+      gemToSvg (x * 16) ((height - y - 1) * 16) gem True
+
+    field =
+      model.field
+        |> Array2.toIndexedList
+        |> List.filter (\( _, gem ) -> gem /= Void)
+        |> List.map gemView
+
+    dango =
+      ( if model.fallingGem == emptyDango
+        then []
+        else
+          [ ( ( posX, posY + 0), bottom )
+          , ( ( posX, posY + 1), middle )
+          , ( ( posX, posY + 2), top )
+          ]
+      ) |> List.map gemView
+
+    collecting =
+      model.collecting
+        |> Array2.toIndexedList
+        |> List.filter (\( _, gem ) -> gem /= Void)
+        |> List.map gemViewBlinking
+
+    background =
+      Svg.rect
+      [ SAttr.x "0", SAttr.y "0", SAttr.width w, SAttr.height h
+      , SAttr.fill "#AAA"]
+      []
   in
-    model.field
-      |> Array2.set posX (posY + 0) bottom
-      |> Array2.set posX (posY + 1) middle
-      |> Array2.set posX (posY + 2) top
-      |> Array2.indexedMap (\x y fromField ->
-        let
-          cell =
-            case model.collecting |> Array2.get x y of
-              Just (Gem fromCollecting) ->
-                { color = "red", gem = Gem fromCollecting }
-              _ ->
-                { color = "black", gem = fromField }
-        in
-          span
-          [ Attr.style "color" cell.color ]
-          [ text <| String.fromChar <| gemToChar <| cell.gem ]
+    [ Svg.svg
+      [ SAttr.width w
+      , SAttr.height h
+      , SAttr.viewBox <| "0 0 "++w++" "++h
+      ]
+      ([]
+        |> pushIf (model.state == GameOver) gameOverText
+        |> (++) field
+        |> (++) dango
+        |> (++) collecting
+        |> (::) background
       )
-      |> Array2.toListByRow
-      |> List.reverse
-      |> List.map (span [])
-      |> List.intersperse (br[][])
-      |> div []
-      |> List.singleton
-      |> pushIf (model.state == GameOver) (text "GameOver")
-      |> div [Attr.id "gems"]
+    ]
+      |> div [ HAttr.id "gems" ]
 
-gemToChar gem =
-  case gem of
-    Gem 0 -> '0'
-    Gem 1 -> '1'
-    Gem 2 -> '2'
-    Gem 3 -> '3'
-    Void -> '.'
-    _ -> '/'
+gemToSvg : Int -> Int -> Gem -> Bool -> Svg msg
+gemToSvg x y gem blinking =
+  let
+    points =
+      shape
+        |> List.map (\( x_, y_ ) -> ( x + x_, y + y_))
 
+    class =
+      gemToClass gem blinking
+  in
+    polygon points class
 
+gemToClass gem blinking =
+  let
+    gemName =
+      case gem of
+        Gem 0 -> "ruby"
+        Gem 1 -> "sapphire"
+        Gem 2 -> "emerald"
+        Gem 3 -> "citrine"
+        Gem 4 -> "amethyst"
+        _ -> "?"
+
+    blinking_ =
+      if blinking
+      then "-blinking"
+      else ""
+  in
+    SAttr.class <| gemName ++ blinking_
+
+shape =
+  [ (  1,  5 ), (  5,  1 ), ( 11,  1 ), ( 15,  5 )
+  , ( 15, 11 ), ( 11, 15 ), (  5, 15 ), (  1, 11 )
+  ]
+
+polygon : List (Int, Int) -> Svg.Attribute msg -> Svg msg
+polygon points class =
+  Svg.polygon
+  [ points
+     |> List.map (\( x, y ) -> String.fromInt x ++ "," ++ String.fromInt y)
+     |> String.join " "
+     |> SAttr.points
+  , class
+  ][]
 
 -- SUBSCRIPTION --
 

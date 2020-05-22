@@ -1,3 +1,96 @@
 #gems {
   font-family: Consolas;
 }
+
+#gems .ruby {
+  fill: #C00;
+}
+#gems .sapphire {
+  fill: #04F;
+}
+#gems .emerald {
+  fill: #081;
+}
+#gems .citrine {
+  fill: #FD0;
+}
+#gems .amethyst {
+  fill: #404;
+}
+
+#gems .ruby-blinking {
+  animation-name: ruby;
+  animation-duration: 0.2s;
+  animation-direction: alternate;
+  animation-iteration-count: 3;
+  animation-timing-function: ease;
+}
+#gems .sapphire-blinking {
+  animation-name: sapphire;
+  animation-duration: 0.2s;
+  animation-direction: alternate;
+  animation-iteration-count: 3;
+  animation-timing-function: ease;
+}
+#gems .emerald-blinking {
+  animation-name: emerald;
+  animation-duration: 0.2s;
+  animation-direction: alternate;
+  animation-iteration-count: 3;
+  animation-timing-function: ease;
+}
+#gems .citrine-blinking {
+  animation-name: citrine;
+  animation-duration: 0.2s;
+  animation-direction: alternate;
+  animation-iteration-count: 3;
+  animation-timing-function: ease;
+}
+#gems .amethyst-blinking {
+  animation-name: amethyst;
+  animation-duration: 0.2s;
+  animation-direction: alternate;
+  animation-iteration-count: 3;
+  animation-timing-function: ease;
+}
+
+@keyframes ruby {
+  0% {
+      fill: #C00;
+  }
+  100% {
+      fill: #FFF;
+  }
+}
+@keyframes sapphire {
+  0% {
+      fill: #04F;
+  }
+  100% {
+      fill: #FFF;
+  }
+}
+@keyframes emerald {
+  0% {
+      fill: #081;
+  }
+  100% {
+      fill: #FFF;
+  }
+}
+@keyframes citrine {
+  0% {
+      fill: #FD0;
+  }
+  100% {
+      fill: #FFF;
+  }
+}
+@keyframes amethyst {
+  0% {
+      fill: #404;
+  }
+  100% {
+      fill: #FFF;
+  }
+}
