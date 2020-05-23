@@ -30,11 +30,29 @@
   fill: #404;
 }
 
-#gems .ruby-blinking {
-  animation-name: ruby;
-  animation-duration: 0.2s;
-  animation-direction: alternate;
-  animation-iteration-count: 3;
+#gems .ruby-blinking-base {
+  animation-name: ruby-base;
+  animation-duration: 0.5s;
+  animation-timing-function: ease;
+}
+#gems .ruby-blinking-light1 {
+  animation-name: ruby-light1;
+  animation-duration: 0.5s;
+  animation-timing-function: ease;
+}
+#gems .ruby-blinking-light2 {
+  animation-name: ruby-light2;
+  animation-duration: 0.5s;
+  animation-timing-function: ease;
+}
+#gems .ruby-blinking-dark1 {
+  animation-name: ruby-dark1;
+  animation-duration: 0.5s;
+  animation-timing-function: ease;
+}
+#gems .ruby-blinking-dark2 {
+  animation-name: ruby-dark2;
+  animation-duration: 0.5s;
   animation-timing-function: ease;
 }
 #gems .sapphire-blinking {
@@ -66,14 +84,33 @@
   animation-timing-function: ease;
 }
 
-@keyframes ruby {
-  0% {
-      fill: #C00;
-  }
-  100% {
-      fill: #FFF;
-  }
+@keyframes ruby-base {
+    0% { fill: #C00; }
+   50% { fill: #FFF; }
+  100% { fill: #C00; }
 }
+@keyframes ruby-light1 {
+    0% { fill: #FFF; }
+   50% { fill: #D00; }
+  100% { fill: #FFF; }
+}
+@keyframes ruby-light2 {
+    0% { fill: #F88; }
+   30% { fill: #FFF; }
+   60% { fill: #A00; }
+  100% { fill: #F88; }
+}
+@keyframes ruby-dark1 {
+    0% { fill: #A00; }
+   50% { fill: #C00; }
+  100% { fill: #A00; }
+}
+@keyframes ruby-dark2 {
+    0% { fill: #700; }
+   50% { fill: #A00; }
+  100% { fill: #700; }
+}
+
 @keyframes sapphire {
   0% {
       fill: #04F;
