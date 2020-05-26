@@ -456,27 +456,38 @@ gemToClass gem blinking =
   in
     gemName ++ blinking_
 
-shape : String -> List ( List (List (Int, Int)), String )
-shape name =
-  [ (svgBase  , name++"-base"  )
-  , (svgLight1, name++"-light1")
-  , (svgLight2, name++"-light2")
-  , (svgDark1 , name++"-dark1" )
-  , (svgDark2 , name++"-dark2" )
-  ]
+shape : Gem -> List ( List (List (Int, Int)), String )
+shape gem =
+  case gem of
+    Gem 1 ->
+      [ (rubyBase  , "ruby-base"  )
+      , (rubyLight1, "ruby-light1")
+      , (rubyLight2, "ruby-light2")
+      , (rubyDark1 , "ruby-dark1" )
+      , (rubyDark2 , "ruby-dark2" )
+      ]
 
-svgBase =
+    _ ->
+      [ (emeraldBase  , "emerald-base"  )
+      , (emeraldLight1, "emerald-light1")
+      , (emeraldLight2, "emerald-light2")
+      , (emeraldDark1 , "emerald-dark1" )
+      , (emeraldDark2 , "emerald-dark2" )
+      ]
+
+
+rubyBase =
   [ [ (  1, 10 ), (  3,  6 ), (  6,  3 )
     , ( 10,  1 ), ( 14,  3 ), ( 17,  6 )
     , ( 19, 10 ), ( 17, 14 ), ( 14, 17 )
     , ( 10, 19 ), (  6, 17 ), (  3, 14 )
     ]
   ]
-svgLight1 =
+rubyLight1 =
   [ [ (  5, 10 ), (  3,  6 ), (  7,  7 ) ]
   , [ (  7,  7 ), (  6,  3 ), ( 10,  5 ) ]
   ]
-svgLight2 =
+rubyLight2 =
   [ [ (  1, 10 ), (  3,  6 ), (  5, 10 ) ]
   , [ (  3,  6 ), (  6,  3 ), (  7,  7 ) ]
   , [ (  6,  3 ), ( 10,  1 ), ( 10,  5 ) ]
@@ -485,13 +496,13 @@ svgLight2 =
   , [ (  7, 13 ), ( 10, 15 ), (  6, 17 ) ]
   , [ (  5, 10 ), (  7, 13 ), (  3, 14 ) ]
   ]
-svgDark1 =
+rubyDark1 =
   [ [ (  7,  7 ), ( 10,  5 ), ( 10, 10 ) ]
   , [ ( 15, 10 ), ( 17,  6 ), ( 19, 10 ) ]
   , [ ( 15, 10 ), ( 17, 14 ), ( 13, 13 ) ]
   , [ ( 13, 13 ), ( 14, 17 ), ( 10, 15 ) ]
   ]
-svgDark2 =
+rubyDark2 =
   [ [ ( 10, 10 ), ( 13,  7 ), ( 15, 10 ) ]
   , [ ( 15, 10 ), ( 19, 10 ), ( 17, 14 ) ]
   , [ ( 13, 13 ), ( 17, 14 ), ( 14, 17 ) ]
@@ -499,6 +510,29 @@ svgDark2 =
   , [ ( 10, 10 ), ( 10, 15 ), (  7, 13 ) ]
   ]
 
+emeraldBase =
+  [ [ (  2,  5 ), (  5,  2 )
+    , ( 15,  2 ), ( 18,  5 )
+    , ( 18, 15 ), ( 15, 18 )
+    , (  5, 18 ), (  2, 15 )
+  ] ]
+emeraldLight1 =
+  [ [ (  2,  5 ), (  5,  2 ), ( 15,  2 ) ]
+  ]
+emeraldLight2 =
+  [ [ (  6,  6 ), (  5,  2 ), (  7,  6 ) ]
+  , [ (  8,  2 ), ( 15,  2 ), ( 14,  6 ), (  9,  6 ) ]
+  , [ (  2,  5 ), (  6,  6 ), (  6, 14 ), (  2, 15 ) ]
+  , [ ( 10, 10 ), ( 14,  7 ), ( 14,  9 ) ]
+  ]
+emeraldDrak1 =
+  [ [ ( 14,  6 ), ( 18,  5 ), ( 18, 15 ), ( 14, 14 ) ]
+  , [ (  6, 14 ), ( 14, 14 ), ( 15, 18 ), (  5, 18 ) ]
+  , [ (  9,  6 ), ( 10, 10 ), (  6,  6 ) ]
+  ]
+emeraldDrak2 =
+  [ [ ( 14, 14 ), ( 18, 15 ), ( 15, 18 ) ]
+  ]
 polygon : List (Int, Int) -> Svg.Attribute msg -> Svg msg
 polygon points class =
   Svg.polygon
